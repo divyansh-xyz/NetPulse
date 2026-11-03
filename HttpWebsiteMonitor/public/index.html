@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetPulse - HTTP Website Monitoring Tool</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#090d16',
+                            800: '#111827',
+                            700: '#1f2937',
+                            600: '#374151',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-dark-900 text-gray-100 font-sans antialiased min-h-screen flex flex-col selection:bg-cyan-500 selection:text-white">
+
+    <!-- Top Alert Banner Container for Offline / Slow Sites -->
+    <div id="alert-banner-container" class="sticky top-0 z-50 transition-all duration-300"></div>
+
+    <!-- Header / Navigation Bar -->
+    <header class="border-b border-dark-700 bg-dark-800/80 backdrop-blur-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <i data-lucide="activity" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        NetPulse <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">v1.0 Java Backend</span>
+                    </h1>
+                    <p class="text-xs text-gray-400">HTTP Website & Network Performance Monitor</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <!-- Polling Status Indicator -->
+                <div class="hidden sm:flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-dark-700/60 border border-dark-600 text-xs text-gray-300">
+                    <span class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span id="sync-status">Live Polling Active (5s)</span>
+                </div>
+
+                <!-- Add Website Button -->
+                <button onclick="openAddModal()" class="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-sm shadow-lg shadow-cyan-500/25 transition-all transform active:scale-95">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>Add Monitor</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- System Summary Cards -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Total Monitors -->
+            <div class="bg-dark-800/60 backdrop-blur border border-dark-700/80 rounded-2xl p-5 shadow-sm hover:border-dark-600 transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Total Monitors</span>
+                    <div class="p-2 rounded-xl bg-blue-500/10 text-blue-400">
+                        <i data-lucide="globe" class="w-5 h-5"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-baseline justify-between">
+                    <div id="stat-total" class="text-3xl font-bold font-mono text-white">0</div>
+                    <span class="text-xs text-gray-400 font-mono">Active targets</span>
+                </div>
+            </div>
+
+            <!-- Online Count -->
+            <div class="bg-dark-800/60 backdrop-blur border border-dark-700/80 rounded-2xl p-5 shadow-sm hover:border-dark-600 transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Online Status</span>
+                    <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                        <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-baseline justify-between">
+                    <div id="stat-online" class="text-3xl font-bold font-mono text-emerald-400">0</div>
+                    <span id="stat-uptime-pct" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono">100% Uptime</span>
+                </div>
+            </div>
+
+            <!-- Offline Count -->
+            <div class="bg-dark-800/60 backdrop-blur border border-dark-700/80 rounded-2xl p-5 shadow-sm hover:border-dark-600 transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Offline / Errors</span>
+                    <div class="p-2 rounded-xl bg-rose-500/10 text-rose-400">
+                        <i data-lucide="alert-octagon" class="w-5 h-5"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-baseline justify-between">
+                    <div id="stat-offline" class="text-3xl font-bold font-mono text-rose-400">0</div>
+                    <span id="stat-offline-label" class="text-xs text-gray-400 font-mono">No incidents</span>
+                </div>
+            </div>
+
+            <!-- Avg Response Time -->
+            <div class="bg-dark-800/60 backdrop-blur border border-dark-700/80 rounded-2xl p-5 shadow-sm hover:border-dark-600 transition-all">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Avg Response Time</span>
+                    <div class="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+                        <i data-lucide="zap" class="w-5 h-5"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-baseline justify-between">
+                    <div id="stat-avg-response" class="text-3xl font-bold font-mono text-white">0 <span class="text-sm font-normal text-gray-400">ms</span></div>
+                    <span class="text-xs text-gray-400 font-mono">Global latency</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Monitoring Table Section -->
+        <section class="bg-dark-800/60 backdrop-blur border border-dark-700/80 rounded-2xl shadow-xl overflow-hidden">
+            <div class="p-6 border-b border-dark-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Monitored Endpoints</h2>
+                    <p class="text-xs text-gray-400 mt-0.5">Real-time HTTP health, DNS resolution times, and server response metrics.</p>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <!-- Search Input -->
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" id="search-input" onkeyup="filterMonitors()" placeholder="Filter by URL or IP..." class="pl-9 pr-4 py-2 bg-dark-900 border border-dark-600 rounded-xl text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-cyan-500 w-full sm:w-64 transition-all">
+                    </div>
+                    <!-- Manual Refresh Button -->
+                    <button onclick="triggerRefresh()" title="Refresh Now" class="p-2 rounded-xl bg-dark-700 hover:bg-dark-600 text-gray-300 hover:text-white border border-dark-600 transition-all">
+                        <i data-lucide="refresh-cw" class="w-4 h-4" id="refresh-icon"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-dark-700 bg-dark-900/50 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                            <th class="py-4 px-6">Target URL</th>
+                            <th class="py-4 px-6">IP Address</th>
+                            <th class="py-4 px-6">Status</th>
+                            <th class="py-4 px-6">DNS Lookup</th>
+                            <th class="py-4 px-6">HTTP Status</th>
+                            <th class="py-4 px-6">Response Time</th>
+                            <th class="py-4 px-6">Last Checked</th>
+                            <th class="py-4 px-6 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monitors-table-body" class="divide-y divide-dark-700/60 text-sm">
+                        <!-- Populated via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden py-16 text-center">
+                <div class="w-16 h-16 mx-auto rounded-2xl bg-dark-700 flex items-center justify-center text-gray-400 mb-4">
+                    <i data-lucide="server-off" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-base font-medium text-white">No websites monitored yet</h3>
+                <p class="text-xs text-gray-400 mt-1 max-w-sm mx-auto">Add your first target URL to start tracking DNS resolution and HTTP latency metrics.</p>
+                <button onclick="openAddModal()" class="mt-4 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-white text-sm font-medium transition-all">
+                    Add First Monitor
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-dark-700 bg-dark-800/40 py-6 mt-12 text-center text-xs text-gray-500">
+        <p>Computer Networks Project — HTTP Website Monitoring Tool &bull; Built with Java Server & Tailwind CSS</p>
+    </footer>
+
+    <!-- Add New Website Modal -->
+    <div id="add-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-dark-800 border border-dark-700 rounded-3xl w-full max-w-md p-6 shadow-2xl transform scale-95 transition-transform duration-300" id="modal-content">
+            <div class="flex items-center justify-between pb-4 border-b border-dark-700">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400">
+                        <i data-lucide="globe" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-white">Add Website Monitor</h3>
+                        <p class="text-xs text-gray-400">Configure URL and polling interval</p>
+                    </div>
+                </div>
+                <button onclick="closeAddModal()" class="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-dark-700 transition-all">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="add-form" onsubmit="handleAddMonitor(event)" class="space-y-4 pt-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1.5">Website URL</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                            <i data-lucide="link" class="w-4 h-4"></i>
+                        </span>
+                        <input type="text" id="new-url" required placeholder="https://example.com" class="w-full pl-10 pr-4 py-2.5 bg-dark-900 border border-dark-600 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all">
+                    </div>
+                    <p class="text-[11px] text-gray-500 mt-1">Supports HTTP and HTTPS protocols.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1.5">Check Interval (Seconds)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                            <i data-lucide="clock" class="w-4 h-4"></i>
+                        </span>
+                        <input type="number" id="new-interval" required min="5" value="10" class="w-full pl-10 pr-4 py-2.5 bg-dark-900 border border-dark-600 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all">
+                    </div>
+                    <p class="text-[11px] text-gray-500 mt-1">Recommended interval: 10 to 60 seconds.</p>
+                </div>
+
+                <div class="pt-4 flex items-center justify-end space-x-3 border-t border-dark-700">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 rounded-xl bg-dark-700 hover:bg-dark-600 text-gray-300 text-sm font-medium transition-all">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-sm font-medium shadow-lg shadow-cyan-500/20 transition-all">
+                        Start Monitoring
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification Toast Message Box -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // API base URL — same origin since served by the Java backend
+        const API_BASE = window.location.origin;
+
+        // Live monitors array (populated from Java backend API)
+        let monitors = [];
+
+        // Polling interval handle
+        let pollingHandle = null;
+        const POLL_INTERVAL_MS = 5000;
+
+        // ──────── Boot ────────
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchMetrics();
+            startPolling();
+        });
+
+        // ──────── Polling ────────
+        function startPolling() {
+            if (pollingHandle) clearInterval(pollingHandle);
+            pollingHandle = setInterval(fetchMetrics, POLL_INTERVAL_MS);
+        }
+
+        // ──────── Fetch from Java Backend ────────
+        async function fetchMetrics() {
+            try {
+                const res = await fetch(API_BASE + '/api/metrics');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                monitors = data.monitors || [];
+                renderDashboard();
+            } catch (err) {
+                console.warn('[NetPulse] Failed to fetch metrics:', err.message);
+                // Show connectivity warning but keep existing data rendered
+            }
+        }
+
+        // ──────── Render ────────
+        function renderDashboard() {
+            const tbody = document.getElementById('monitors-table-body');
+            const emptyState = document.getElementById('empty-state');
+            const searchTerm = (document.getElementById('search-input').value || '').toLowerCase();
+
+            const filtered = monitors.filter(m =>
+                m.url.toLowerCase().includes(searchTerm) || (m.ip || '').toLowerCase().includes(searchTerm)
+            );
+
+            if (monitors.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                updateSummaryStats();
+                updateAlertBanner([]);
+                return;
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-gray-500 text-sm">No monitors match your search query.</td></tr>`;
+                emptyState.classList.add('hidden');
+                updateSummaryStats();
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            tbody.innerHTML = filtered.map(m => {
+                const isUp = m.status === 'UP';
+                const statusBadgeClass = isUp
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+
+                const dotClass = isUp ? 'bg-emerald-500' : 'bg-rose-500';
+
+                const codeColor = m.statusCode >= 200 && m.statusCode < 300
+                    ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                    : m.statusCode >= 400 || m.statusCode < 0
+                    ? 'text-rose-400 bg-rose-500/10 border-rose-500/20'
+                    : 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+
+                const dnsDisplay = m.dnsTime >= 0 ? m.dnsTime + ' ms' : 'N/A';
+                const respDisplay = m.responseTime >= 0 ? m.responseTime + ' ms' : 'N/A';
+                const codeDisplay = m.statusCode >= 0 ? m.statusCode : 'ERR';
+
+                return `
+                    <tr class="hover:bg-dark-700/40 transition-colors group">
+                        <td class="py-4 px-6 font-mono text-xs text-cyan-400 font-medium">
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="globe" class="w-3.5 h-3.5 text-gray-500"></i>
+                                <a href="${m.url}" target="_blank" class="hover:underline truncate max-w-xs" title="${m.url}">${m.url}</a>
+                            </div>
+                        </td>
+                        <td class="py-4 px-6 font-mono text-xs text-gray-300">${m.ip || 'N/A'}</td>
+                        <td class="py-4 px-6">
+                            <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${statusBadgeClass}">
+                                <span class="relative flex h-2 w-2">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full ${dotClass} opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-2 w-2 ${dotClass}"></span>
+                                </span>
+                                <span>${m.status}</span>
+                            </span>
+                        </td>
+                        <td class="py-4 px-6 font-mono text-xs text-gray-300">${dnsDisplay}</td>
+                        <td class="py-4 px-6">
+                            <span class="px-2 py-0.5 rounded-md text-xs font-mono font-bold border ${codeColor}">${codeDisplay}</span>
+                        </td>
+                        <td class="py-4 px-6 font-mono text-xs text-gray-300">
+                            <span class="${m.responseTime > 500 ? 'text-amber-400 font-semibold' : ''}">${respDisplay}</span>
+                        </td>
+                        <td class="py-4 px-6 text-xs text-gray-400">${m.lastChecked || 'Pending...'}</td>
+                        <td class="py-4 px-6 text-right">
+                            <button onclick="deleteMonitor('${encodeURIComponent(m.url)}')" class="p-1.5 rounded-lg text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Delete Monitor">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+            updateSummaryStats();
+            updateAlertBanner(monitors);
+        }
+
+        function filterMonitors() {
+            renderDashboard();
+        }
+
+        function updateSummaryStats() {
+            const total = monitors.length;
+            const online = monitors.filter(m => m.status === 'UP').length;
+            const offline = total - online;
+            const uptimePct = total > 0 ? ((online / total) * 100).toFixed(1) : 100;
+
+            const totalResp = monitors.filter(m => m.responseTime >= 0).reduce((acc, m) => acc + m.responseTime, 0);
+            const validCount = monitors.filter(m => m.responseTime >= 0).length;
+            const avgResp = validCount > 0 ? Math.round(totalResp / validCount) : 0;
+
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-online').innerText = online;
+            document.getElementById('stat-offline').innerText = offline;
+            document.getElementById('stat-uptime-pct').innerText = `${uptimePct}% Uptime`;
+            document.getElementById('stat-avg-response').innerHTML = `${avgResp} <span class="text-sm font-normal text-gray-400">ms</span>`;
+
+            const offlineLabel = document.getElementById('stat-offline-label');
+            if (offline > 0) {
+                offlineLabel.innerText = `${offline} incident(s)`;
+                offlineLabel.className = 'text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-mono';
+            } else {
+                offlineLabel.innerText = 'All systems nominal';
+                offlineLabel.className = 'text-xs text-gray-400 font-mono';
+            }
+        }
+
+        function updateAlertBanner(list) {
+            const container = document.getElementById('alert-banner-container');
+            const downMonitors = list.filter(m => m.status === 'DOWN' || m.statusCode >= 400);
+
+            if (downMonitors.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="bg-rose-950/90 border-b border-rose-800 text-rose-200 px-4 py-3 backdrop-blur-md shadow-lg flex items-center justify-between">
+                    <div class="flex items-center space-x-3 max-w-7xl mx-auto w-full">
+                        <div class="p-1 rounded-lg bg-rose-500 text-white animate-bounce">
+                            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                        </div>
+                        <div class="text-xs sm:text-sm font-medium">
+                            <span class="font-bold underline">Incident Alert:</span> ${downMonitors.length} website(s) are currently unreachable or returning server error codes (${downMonitors.map(d => d.url).join(', ')}).
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // ──────── Manual Refresh ────────
+        async function triggerRefresh() {
+            const icon = document.getElementById('refresh-icon');
+            icon.classList.add('animate-spin');
+            try {
+                await fetch(API_BASE + '/api/refresh', { method: 'POST' });
+                // Wait a moment for probes to complete, then fetch updated metrics
+                setTimeout(async () => {
+                    await fetchMetrics();
+                    icon.classList.remove('animate-spin');
+                    showToast('Metrics successfully refreshed from Java backend.', 'success');
+                }, 1500);
+            } catch (err) {
+                icon.classList.remove('animate-spin');
+                showToast('Failed to trigger refresh: ' + err.message, 'error');
+            }
+        }
+
+        // ──────── Modal Controls ────────
+        function openAddModal() {
+            const modal = document.getElementById('add-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+            document.getElementById('new-url').focus();
+        }
+
+        function closeAddModal() {
+            const modal = document.getElementById('add-modal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                document.getElementById('add-form').reset();
+            }, 300);
+        }
+
+        // ──────── Add Monitor (calls Java backend) ────────
+        async function handleAddMonitor(event) {
+            event.preventDefault();
+            const url = document.getElementById('new-url').value.trim();
+            const interval = parseInt(document.getElementById('new-interval').value) || 10;
+
+            try {
+                const res = await fetch(API_BASE + '/api/targets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, interval })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to add monitor');
+                }
+
+                closeAddModal();
+                showToast(`Successfully added monitor for ${url}`, 'success');
+
+                // Fetch updated metrics after a brief delay for the first probe
+                setTimeout(fetchMetrics, 2000);
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+        // ──────── Delete Monitor (calls Java backend) ────────
+        async function deleteMonitor(encodedUrl) {
+            const url = decodeURIComponent(encodedUrl);
+            try {
+                const res = await fetch(API_BASE + '/api/targets?url=' + encodedUrl, {
+                    method: 'DELETE'
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to delete monitor');
+                }
+
+                showToast(`Removed monitor: ${url}`, 'info');
+                await fetchMetrics();
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+        // ──────── Toast Notifications ────────
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            const bgClass = type === 'success'
+                ? 'bg-emerald-950/90 border-emerald-800 text-emerald-200'
+                : type === 'error'
+                ? 'bg-rose-950/90 border-rose-800 text-rose-200'
+                : 'bg-dark-800 border-dark-600 text-gray-200';
+            const iconName = type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info';
+
+            toast.className = `pointer-events-auto flex items-center space-x-3 px-4 py-3 rounded-2xl border ${bgClass} shadow-xl backdrop-blur-md transition-all transform translate-y-2 opacity-0 duration-300`;
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="w-4 h-4 text-cyan-400"></i>
+                <span class="text-xs font-medium">${message}</span>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,16 @@
+# Compiled class files
+out/
+
+# Auto-generated data files
+data/monitoring_metrics.csv
+data/failures.log
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.class
+
+# OS files
+.DS_Store
+Thumbs.db

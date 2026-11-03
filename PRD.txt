@@ -1,0 +1,17 @@
+HttpWebsiteMonitor/
+├── src/
+│   ├── Main.java                 # Entry point; disables JVM DNS cache and starts services
+│   ├── model/
+│   │   └── ProbeResult.java      # Data model for availability, DNS time, status, latency
+│   ├── network/
+│   │   ├── NetworkProber.java    # Executes InetAddress DNS lookup and HttpURLConnection check
+│   │   └── MonitorScheduler.java # Manages ScheduledExecutorService for concurrent targets
+│   ├── storage/
+│   │   └── MetricsStore.java     # Manages in-memory ring buffer, CSV writer, and failure log
+│   └── web/
+│       └── DashboardServer.java  # Embedded HttpServer serving index.html and /api/metrics
+├── public/
+│   └── index.html                # Single-page dashboard UI with live table and alert styling
+└── data/
+    ├── monitoring_metrics.csv    # Auto-generated historical metrics file
+    └── failures.log              # Auto-generated downtime and timeout alert log
